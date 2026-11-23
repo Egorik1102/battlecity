@@ -4,35 +4,41 @@
 
 Tank::Tank(Vector2 startPos) {
     pos = startPos;
-    bodyAngle = 0.0f;
-    turretAngle = 0.0f;
+    bodyAngle = -90.0f; // По умолчанию смотрим вверх
     hp = 100;
-    speed = 200.0f;
+    speed = 150.0f;
 }
 
 void Tank::Update(float dt) {
-    if (IsKeyDown(KEY_W)) pos.y -= speed * dt;
-    if (IsKeyDown(KEY_S)) pos.y += speed * dt;
-    if (IsKeyDown(KEY_A)) pos.x -= speed * dt;
-    if (IsKeyDown(KEY_D)) pos.x += speed * dt;
+    // Запоминаем, двигался ли танк в этом кадре
+    bool isMoving = false;
 
-    if (IsKeyDown(KEY_Q)) bodyAngle -= 2.5f * dt;
-    if (IsKeyDown(KEY_E)) bodyAngle += 2.5f * dt;
+    // 1. Смена направления (стреляем по кнопкам)
+    if (IsKeyPressed(KEY_W) || IsKeyDown(KEY_W)) { bodyAngle = -90.0f; isMoving = true; }
+    if (IsKeyPressed(KEY_S) || IsKeyDown(KEY_S)) { bodyAngle = 90.0f;  isMoving = true; }
+    if (IsKeyPressed(KEY_A) || IsKeyDown(KEY_A)) { bodyAngle = 180.0f; isMoving = true; }
+    if (IsKeyPressed(KEY_D) || IsKeyDown(KEY_D)) { bodyAngle = 0.0f;   isMoving = true; }
 
-    Vector2 mouse = GetMousePosition();
-    turretAngle = atan2f(mouse.y - pos.y, mouse.x - pos.x);
+    // 2. Движение вперед, если нажата кнопка
+    if (isMoving) {
+        float radians = bodyAngle * DEG2RAD;
+        // Двигаем танк в ту сторону, куда смотрит пушка
+        pos.x += cosf(radians) * speed * dt;
+        pos.y += sinf(radians) * speed * dt;
+    }
 }
 
 void Tank::Draw() {
-    Rectangle body = { pos.x - 20, pos.y - 20, 40, 40 };
-    DrawRectanglePro(body, { 20, 20 }, bodyAngle * RAD2DEG, DARKGREEN);
-    DrawCircleV(pos, 10, GREEN);
+    // Рисуем корпус (квадрат). pos - это центр.
+    Rectangle body = { pos.x, pos.y, 40, 40 }; 
+    DrawRectanglePro(body, { 20, 20 }, bodyAngle + 90.0f, DARKGREEN); 
     
-    Vector2 barrelEnd = {
-        pos.x + cosf(turretAngle) * 30,
-        pos.y + sinf(turretAngle) * 30
-    };
-    DrawLineEx(pos, barrelEnd, 4.0f, LIME);
+    // Рисуем пушку (ствол) ровно из центра
+    float radians = bodyAngle * DEG2RAD;
+    Vector2 barrelEnd = { pos.x + cosf(radians) * 25, pos.y + sinf(radians) * 25 };
+    
+    DrawLineEx(pos, barrelEnd, 6.0f, LIME);
+    DrawCircleV(pos, 10, GREEN); // Башня
 }
 
 Rectangle Tank::GetRect() const {

@@ -4,8 +4,7 @@
 class Tank {
 public:
     Vector2 pos;
-    float bodyAngle;
-    float turretAngle;
+    float bodyAngle; // 0, 90, 180, 270
     int hp;
     float speed;
 
