@@ -17,4 +17,5 @@ private:
     Tank* player = nullptr;
     Map* map = nullptr;
     std::vector<Bullet> bullets;
+    int score = 0; // <--- ДОБАВИТЬ СЧЕТ
 };
