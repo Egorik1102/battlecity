@@ -1,6 +1,7 @@
 #pragma once
 #include "Tank.h"
 #include "Bullet.h"
+#include "Map.h"
 #include <vector>
 
 enum class GameState { Menu, Playing, Paused, GameOver };
@@ -14,5 +15,6 @@ public:
 private:
     GameState state = GameState::Playing; 
     Tank* player = nullptr;
+    Map* map = nullptr;
     std::vector<Bullet> bullets;
 };

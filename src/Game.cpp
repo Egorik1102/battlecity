@@ -4,21 +4,29 @@
 
 void Game::Init() {
     player = new Tank({ 640, 360 }); 
+    map = new Map();
+    map->Init();
 }
 
 void Game::Update(float dt) {
     if (state == GameState::Playing) {
-        if (player) player->Update(dt);
+        if (player) {
+            Vector2 oldPos = player->pos;
+            player->Update(dt);
 
-        // Стрельба по Пробелу
+            for (const auto& wall : map->walls) {
+                if (CheckCollisionRecs(player->GetRect(), wall)) {
+                    player->pos = oldPos;
+                    break;
+                }
+            }
+        }
+
         if (IsKeyPressed(KEY_SPACE) && bullets.size() < 5) {
             bullets.push_back(Bullet(player->pos, player->bodyAngle));
         }
 
-        // Обновление пуль
         for (auto& b : bullets) b.Update(dt);
-        
-        // Удаление неактивных пуль
         bullets.erase(std::remove_if(bullets.begin(), bullets.end(), 
             [](const Bullet& b) { return !b.active; }), bullets.end());
     }
@@ -27,6 +35,7 @@ void Game::Update(float dt) {
 void Game::Draw() {
     ClearBackground({ 30, 30, 35, 255 });
     if (state == GameState::Playing) {
+        if (map) map->Draw();
         if (player) player->Draw();
         for (auto& b : bullets) b.Draw();
     }
@@ -43,4 +52,5 @@ void Game::Run() {
         EndDrawing();
     }
     delete player;
+    delete map;
 }
