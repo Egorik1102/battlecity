@@ -10,6 +10,8 @@ add_executable(battlecity
     src/main.cpp
     src/Game.cpp
     src/Tank.cpp
+    src/Map.cpp
 )
 
 target_link_libraries(battlecity PRIVATE raylib)
+
