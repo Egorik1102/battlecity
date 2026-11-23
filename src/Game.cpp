@@ -52,6 +52,7 @@ void Game::Draw() {
         DrawText(TextFormat("Score: %d", score), 20, 80, 20, GOLD);
     }
     
+    }
     DrawText("WASD - move | Space - shoot", 20, 20, 20, LIGHTGRAY);
 }
 
