@@ -14,4 +14,4 @@ build/
 
 # Системный мусор
 .DS_Store
-Thumbs.db
+Thumbs.db*.zip
