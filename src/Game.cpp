@@ -54,6 +54,11 @@ void Game::Update(float dt) {
         if (player) {
             Vector2 oldPos = player->pos;
             player->Update(dt);
+	    // Ограничение по экрану
+	    if (player->pos.x < 20) player->pos.x = 20;
+	    if (player->pos.x > 1260) player->pos.x = 1260;
+	    if (player->pos.y < 20) player->pos.y = 20;
+	    if (player->pos.y > 700) player->pos.y = 700;
             for (const auto& wall : map->walls) {
                 if (CheckCollisionRecs(player->GetRect(), wall)) {
                     player->pos = oldPos;
@@ -88,6 +93,13 @@ for (auto& b : bullets) {
         for (auto& e : enemies) {
             if (e.active) {
                 e.Update(player->pos, dt);
+		Vector2 oldEnemyPos = e.pos; // (нужно добавить поле oldPos в Enemy, или просто сохранить)
+        for (const auto& wall : map->walls) {
+            if (CheckCollisionRecs(e.GetRect(), wall)) {
+                // Откатываем позицию врага, если врезался
+                // (Для этого в Enemy.cpp в методе Update нужно сохранить старую позицию и откатывать её)
+            }
+        }
                 
                 // Враг бьет игрока (если близко)
                 if (CheckCollisionRecs(player->GetRect(), e.GetRect())) {
