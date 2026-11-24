@@ -9,6 +9,7 @@ public:
     float speed;
     bool active;
     float shootCooldown;
+    float moveTimer;
 
     Enemy(Vector2 startPos);
     void Update(Vector2 playerPos, float dt);
