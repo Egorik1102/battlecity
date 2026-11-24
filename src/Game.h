@@ -21,6 +21,7 @@ private:
     Map* map = nullptr;
     Menu* menu = nullptr;
     std::vector<Bullet> bullets;
+    std::vector<Bullet> enemyBullets;
     std::vector<Enemy> enemies;
     int screenWidth = 1280;
     int screenHeight = 720;
