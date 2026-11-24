@@ -26,7 +26,18 @@ void Game::Update(float dt) {
             bullets.push_back(Bullet(player->pos, player->bodyAngle));
         }
 
-        for (auto& b : bullets) b.Update(dt);
+        // Обновление пуль и проверка столкновения со стенами
+for (auto& b : bullets) {
+    b.Update(dt);
+    if (b.active) {
+        for (const auto& wall : map->walls) {
+            if (CheckCollisionRecs({b.pos.x - 4, b.pos.y - 4, 8, 8}, wall)) {
+                b.active = false;
+                break;
+            }
+        }
+    }
+}
         bullets.erase(std::remove_if(bullets.begin(), bullets.end(), 
             [](const Bullet& b) { return !b.active; }), bullets.end());
     }
