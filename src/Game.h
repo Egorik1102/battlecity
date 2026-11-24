@@ -3,6 +3,7 @@
 #include "Bullet.h"
 #include "Map.h"
 #include "Menu.h"
+#include "Enemy.h"
 #include <vector>
 
 enum class GameState { Menu, Playing, Paused, GameOver };
@@ -15,16 +16,13 @@ public:
     void Update(float dt);
     void Draw();
 private:
-    GameState state = GameState::Menu;   // Игра стартует из главного меню
+    GameState state = GameState::Menu;
     Tank* player = nullptr;
     Map* map = nullptr;
     Menu* menu = nullptr;
     std::vector<Bullet> bullets;
-
+    std::vector<Enemy> enemies;
     int screenWidth = 1280;
     int screenHeight = 720;
-
-    // Перезапуск уровня: создаёт заново игрока, карту, чистит пули.
     void Restart();
-    int score = 0; // <--- ДОБАВИТЬ СЧЕТ
 };

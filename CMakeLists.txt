@@ -13,6 +13,7 @@ add_executable(battlecity
     src/Map.cpp
     src/Bullet.cpp
     src/Menu.cpp
+    src/Enemy.cpp	
 )
 
 target_link_libraries(battlecity PRIVATE raylib)
