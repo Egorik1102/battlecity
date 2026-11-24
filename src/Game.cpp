@@ -12,7 +12,6 @@ void Game::Init() {
     map = new Map();
     map->Init();
     
-    // Спавним 3 врага
     enemies.clear();
     enemies.push_back(Enemy({ 100, 100 }));
     enemies.push_back(Enemy({ 1180, 100 }));
@@ -25,6 +24,7 @@ void Game::Restart() {
     player = nullptr;
     map = nullptr;
     bullets.clear();
+    enemyBullets.clear();
     enemies.clear();
     Init();
 }
@@ -54,11 +54,10 @@ void Game::Update(float dt) {
         if (player) {
             Vector2 oldPos = player->pos;
             player->Update(dt);
-	    // Ограничение по экрану
-	    if (player->pos.x < 20) player->pos.x = 20;
-	    if (player->pos.x > 1260) player->pos.x = 1260;
-	    if (player->pos.y < 20) player->pos.y = 20;
-	    if (player->pos.y > 700) player->pos.y = 700;
+            if (player->pos.x < 20) player->pos.x = 20;
+            if (player->pos.x > 1260) player->pos.x = 1260;
+            if (player->pos.y < 20) player->pos.y = 20;
+            if (player->pos.y > 700) player->pos.y = 700;
             for (const auto& wall : map->walls) {
                 if (CheckCollisionRecs(player->GetRect(), wall)) {
                     player->pos = oldPos;
@@ -67,46 +66,46 @@ void Game::Update(float dt) {
             }
         }
 
-        // Стрельба
         if (IsKeyPressed(KEY_SPACE) && bullets.size() < 5) {
             bullets.push_back(Bullet(player->pos, player->bodyAngle));
         }
 
-        // Обновление пуль и проверка столкновения со стенами
-for (auto& b : bullets) {
-    b.Update(dt);
-    if (b.active) {
-        for (const auto& wall : map->walls) {
-            if (CheckCollisionRecs({b.pos.x - 4, b.pos.y - 4, 8, 8}, wall)) {
-                b.active = false;
-                break;
+        for (auto& b : bullets) {
+            b.Update(dt);
+            if (b.active) {
+                for (const auto& wall : map->walls) {
+                    if (CheckCollisionRecs({b.pos.x - 4, b.pos.y - 4, 8, 8}, wall)) {
+                        b.active = false;
+                        break;
+                    }
+                }
             }
         }
-    }
-}
-        // Обновление пуль
-        for (auto& b : bullets) b.Update(dt);
         bullets.erase(std::remove_if(bullets.begin(), bullets.end(), 
             [](const Bullet& b) { return !b.active; }), bullets.end());
 
-        // Обновление врагов и проверка урона
         for (auto& e : enemies) {
             if (e.active) {
+                Vector2 oldEnemyPos = e.pos;
                 e.Update(player->pos, dt);
-		Vector2 oldEnemyPos = e.pos; // (нужно добавить поле oldPos в Enemy, или просто сохранить)
-        for (const auto& wall : map->walls) {
-            if (CheckCollisionRecs(e.GetRect(), wall)) {
-                // Откатываем позицию врага, если врезался
-                // (Для этого в Enemy.cpp в методе Update нужно сохранить старую позицию и откатывать её)
-            }
-        }
                 
-                // Враг бьет игрока (если близко)
+                for (const auto& wall : map->walls) {
+                    if (CheckCollisionRecs(e.GetRect(), wall)) {
+                        e.pos = oldEnemyPos;
+                        e.moveTimer = 0.0f;
+                        break;
+                    }
+                }
+
+                if (e.shootCooldown <= 0.0f) {
+                    enemyBullets.push_back(Bullet(e.pos, e.bodyAngle));
+                    e.shootCooldown = 2.0f;
+                }
+
                 if (CheckCollisionRecs(player->GetRect(), e.GetRect())) {
                     player->TakeDamage(10);
                 }
 
-                // Пули бьют врага
                 for (auto& b : bullets) {
                     if (b.active && CheckCollisionRecs(e.GetRect(), {b.pos.x, b.pos.y, 8, 8})) {
                         e.TakeDamage(10);
@@ -116,7 +115,24 @@ for (auto& b : bullets) {
             }
         }
 
-        // Проверка смерти
+        for (auto& b : enemyBullets) {
+            b.Update(dt);
+            if (b.active) {
+                for (const auto& wall : map->walls) {
+                    if (CheckCollisionRecs({b.pos.x - 4, b.pos.y - 4, 8, 8}, wall)) {
+                        b.active = false;
+                        break;
+                    }
+                }
+                if (CheckCollisionRecs({b.pos.x - 4, b.pos.y - 4, 8, 8}, player->GetRect())) {
+                    player->TakeDamage(10);
+                    b.active = false;
+                }
+            }
+        }
+        enemyBullets.erase(std::remove_if(enemyBullets.begin(), enemyBullets.end(), 
+            [](const Bullet& b) { return !b.active; }), enemyBullets.end());
+
         if (player->hp <= 0) state = GameState::GameOver;
     }
 }
@@ -132,7 +148,13 @@ void Game::Draw() {
     if (map) map->Draw();
     if (player) player->Draw();
     for (auto& b : bullets) b.Draw();
+    for (auto& b : enemyBullets) b.Draw();
     for (auto& e : enemies) e.Draw();
+
+    if (player) {
+        DrawText(TextFormat("HP: %d", player->hp), 20, screenHeight - 40, 30, WHITE);
+        DrawText("SPACE - shoot", screenWidth - 200, screenHeight - 40, 20, LIGHTGRAY);
+    }
 
     if (state == GameState::Paused) {
         DrawRectangle(0, 0, screenWidth, screenHeight, { 0, 0, 0, 160 });
