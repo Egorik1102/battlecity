@@ -10,6 +10,7 @@ public:
     bool active;
     float shootCooldown;
     float moveTimer;
+    float spawnTimer; // <--- ДОБАВИЛИ (для анимации)
 
     Enemy(Vector2 startPos);
     void Update(Vector2 playerPos, float dt);

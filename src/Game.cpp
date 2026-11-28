@@ -2,6 +2,8 @@
 #include "raylib.h"
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
+#include <ctime>
 
 Game::Game() {
     menu = new Menu(screenWidth, screenHeight);
@@ -17,11 +19,27 @@ void Game::Init() {
         map->offset.y + 15 * Map::TILE_SIZE + Map::TILE_SIZE / 2.0f
     };
     player = new Tank(startPos);
-    
+
+    // --- Точки спавна врагов (верхняя часть карты) ---
+    spawnPoints = {
+        { map->offset.x + 1  * Map::TILE_SIZE + Map::TILE_SIZE / 2.0f, map->offset.y + 1 * Map::TILE_SIZE + Map::TILE_SIZE / 2.0f },
+        { map->offset.x + 13 * Map::TILE_SIZE + Map::TILE_SIZE / 2.0f, map->offset.y + 1 * Map::TILE_SIZE + Map::TILE_SIZE / 2.0f },
+        { map->offset.x + 7  * Map::TILE_SIZE + Map::TILE_SIZE / 2.0f, map->offset.y + 1 * Map::TILE_SIZE + Map::TILE_SIZE / 2.0f },
+    };
+
+    // --- Волны ---
     enemies.clear();
-    enemies.push_back(Enemy({ 100, 100 }));
-    enemies.push_back(Enemy({ 1180, 100 }));
-    enemies.push_back(Enemy({ 640, 100 }));
+    enemiesToSpawn = 20;
+    spawnCooldown = 0.0f;
+
+    SpawnEnemy();          // первый враг сразу
+    enemiesToSpawn--;      // учитываем его в счётчике
+    spawnCooldown = 2.0f;  // следующий через 2 секунды
+}
+
+void Game::SpawnEnemy() {
+    int idx = rand() % (int)spawnPoints.size();
+    enemies.push_back(Enemy(spawnPoints[idx]));
 }
 
 void Game::Restart() {
@@ -51,13 +69,39 @@ void Game::Update(float dt) {
     if (state == GameState::Playing) {
         if (IsKeyPressed(KEY_ESCAPE)) { state = GameState::Paused; return; }
 
-        // --- 1. ИГРОК И ЕГО КОЛЛИЗИИ (от Z.AI) ---
+        // ================= ЛОГИКА ВОЛН =================
+        if (enemiesToSpawn > 0) {
+            spawnCooldown -= dt;
+
+            int activeEnemies = 0;
+            for (const auto& e : enemies)
+                if (e.active) activeEnemies++;
+
+            if (activeEnemies < 4 && spawnCooldown <= 0.0f) {
+                SpawnEnemy();
+                enemiesToSpawn--;
+                spawnCooldown = 2.0f; // следующий через 2 секунды
+            }
+        }
+
+        // ================= 1. ИГРОК И КОЛЛИЗИИ =================
         if (player) {
             Vector2 oldPos = player->pos;
             player->Update(dt);
+
+            // Стены
             if (map->CheckRectCollision(player->GetRect())) {
                 player->pos = oldPos;
             }
+
+            // Игрок врезался во врага — откат (без урона)
+            for (auto& e : enemies) {
+                if (e.active && CheckCollisionRecs(player->GetRect(), e.GetRect())) {
+                    player->pos = oldPos;
+                    break;
+                }
+            }
+
             // Ограничение по краям карты
             float minX = map->offset.x + 20.0f;
             float maxX = map->offset.x + map->GetWidthPx() - 20.0f;
@@ -69,61 +113,76 @@ void Game::Update(float dt) {
             if (player->pos.y > maxY) player->pos.y = maxY;
         }
 
-        // --- 2. ПУЛИ ИГРОКА ---
+        // ================= 2. ПУЛИ ИГРОКА =================
         if (IsKeyPressed(KEY_SPACE) && bullets.size() < 5) {
             bullets.push_back(Bullet(player->pos, player->bodyAngle));
         }
         for (auto& b : bullets) {
             b.Update(dt);
             if (b.active && map->IsSolidAt(b.pos.x, b.pos.y)) {
-                b.active = false; // Пуля врезалась в стену (от Z.AI)
+                b.active = false; // Пуля врезалась в стену
             }
         }
-        bullets.erase(std::remove_if(bullets.begin(), bullets.end(), 
+        bullets.erase(std::remove_if(bullets.begin(), bullets.end(),
             [](const Bullet& b) { return !b.active; }), bullets.end());
 
-        // --- 3. ВРАГИ И ИХ ПУЛИ (наши) ---
+        // ================= 3. ВРАГИ =================
         for (auto& e : enemies) {
             if (e.active) {
                 Vector2 oldEnemyPos = e.pos;
                 e.Update(player->pos, dt);
-                
-                // Коллизия врагов со стенами
+
+                // Стены
                 if (map->CheckRectCollision(e.GetRect())) {
                     e.pos = oldEnemyPos;
                     e.moveTimer = 0.0f;
                 }
 
+                // Враг врезался в игрока — откат (без урона)
+                if (player && CheckCollisionRecs(e.GetRect(), player->GetRect())) {
+                    e.pos = oldEnemyPos;
+                    e.moveTimer = 0.0f;
+                }
+
+                // Враг врезался в другого врага — откат
+                for (auto& other : enemies) {
+                    if (&other == &e || !other.active) continue;
+                    if (CheckCollisionRecs(e.GetRect(), other.GetRect())) {
+                        e.pos = oldEnemyPos;
+                        e.moveTimer = 0.0f;
+                        break;
+                    }
+                }
+
+                // Стрельба врага
                 if (e.shootCooldown <= 0.0f) {
                     enemyBullets.push_back(Bullet(e.pos, e.bodyAngle));
                     e.shootCooldown = 2.0f;
                 }
 
-                if (CheckCollisionRecs(player->GetRect(), e.GetRect())) {
-                    player->TakeDamage(10);
-                }
-
+                // Попадание пуль игрока по врагу
                 for (auto& b : bullets) {
                     if (b.active && CheckCollisionRecs(e.GetRect(), {b.pos.x, b.pos.y, 8, 8})) {
-                        e.TakeDamage(10);
+                        e.TakeDamage(1); // умирают с одного попадания
                         b.active = false;
                     }
                 }
             }
         }
 
-        // --- 4. ПУЛИ ВРАГОВ ---
+        // ================= 4. ПУЛИ ВРАГОВ =================
         for (auto& b : enemyBullets) {
             b.Update(dt);
             if (b.active) {
-                if (map->IsSolidAt(b.pos.x, b.pos.y)) b.active = false;
-                else if (CheckCollisionRecs({b.pos.x - 4, b.pos.y - 4, 8, 8}, player->GetRect())) {
+                if (map->IsSolidAt(b.pos.x, b.pos.y)) {
+                    b.active = false;
+                } else if (CheckCollisionRecs({b.pos.x - 4, b.pos.y - 4, 8, 8}, player->GetRect())) {
                     player->TakeDamage(10);
                     b.active = false;
                 }
             }
         }
-        enemyBullets.erase(std::remove_if(enemyBullets.begin(), enemyBullets.end(), 
+        enemyBullets.erase(std::remove_if(enemyBullets.begin(), enemyBullets.end(),
             [](const Bullet& b) { return !b.active; }), enemyBullets.end());
 
         if (player->hp <= 0) state = GameState::GameOver;
@@ -143,20 +202,22 @@ void Game::Draw() {
     if (player) {
         DrawText(TextFormat("HP: %d", player->hp), 20, screenHeight - 40, 30, WHITE);
         DrawText("SPACE - shoot", screenWidth - 200, screenHeight - 40, 20, LIGHTGRAY);
+        DrawText(TextFormat("Enemies left: %d", enemiesToSpawn), 20, 20, 20, LIGHTGRAY);
     }
 
     if (state == GameState::Paused) {
         DrawRectangle(0, 0, screenWidth, screenHeight, { 0, 0, 0, 160 });
-        DrawText("PAUSE", screenWidth/2 - 50, screenHeight/2, 40, WHITE);
+        DrawText("PAUSE", screenWidth / 2 - 50, screenHeight / 2, 40, WHITE);
     }
     if (state == GameState::GameOver) {
         DrawRectangle(0, 0, screenWidth, screenHeight, { 0, 0, 0, 200 });
-        DrawText("GAME OVER", screenWidth/2 - 100, screenHeight/2 - 20, 40, RED);
-        DrawText("Press ENTER to return to Menu", screenWidth/2 - 150, screenHeight/2 + 40, 20, WHITE);
+        DrawText("GAME OVER", screenWidth / 2 - 100, screenHeight / 2 - 20, 40, RED);
+        DrawText("Press ENTER to return to Menu", screenWidth / 2 - 150, screenHeight / 2 + 40, 20, WHITE);
     }
 }
 
 void Game::Run() {
+    srand((unsigned)time(nullptr)); // инициализация rand()
     Init();
     while (!WindowShouldClose()) {
         float dt = GetFrameTime();
