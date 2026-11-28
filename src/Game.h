@@ -26,4 +26,10 @@ private:
     int screenWidth = 1280;
     int screenHeight = 720;
     void Restart();
+
+    // --- Волны ---
+    int enemiesToSpawn = 20;
+    float spawnCooldown = 2.0f;
+    std::vector<Vector2> spawnPoints;   // <-- изменено
+    void SpawnEnemy();
 };
