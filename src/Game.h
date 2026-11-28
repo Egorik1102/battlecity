@@ -29,7 +29,6 @@ private:
 
     // --- Волны ---
     int enemiesToSpawn = 20;
-    float spawnCooldown = 2.0f;
-    std::vector<Vector2> spawnPoints;   // <-- изменено
+    std::vector<Vector2> spawnPoints;
     void SpawnEnemy();
 };
